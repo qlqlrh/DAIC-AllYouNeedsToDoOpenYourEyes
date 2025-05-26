@@ -1,0 +1,41 @@
+# macOS 시스템 파일
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Spotlight 검색 인덱스
+.Spotlight-V100
+.Trashes
+
+# macOS에서 리소스 포크
+._*
+
+# macOS에서 써지는 아이콘 정보
+Icon?
+
+# macOS에서 써지는 trash 파일
+*.swp
+
+# Thumbnails
+._.DS_Store
+
+# 사용자 설정 백업
+*.bak
+*.tmp
+
+# VSCode (자주 사용하므로 추가 권장)
+.vscode/
+
+# Node.js 프로젝트
+node_modules/
+
+# TypeScript
+dist/
+build/
+
+# macOS에서 생성되는 파티션 정보
+.VolumeIcon.icns
+
+# macOS에서 외장 드라이브 연결 시 생성되는 디렉터리
+.AppleDouble
+
