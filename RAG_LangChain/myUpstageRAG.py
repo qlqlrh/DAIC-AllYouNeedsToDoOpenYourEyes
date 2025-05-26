@@ -21,7 +21,10 @@ from collections import defaultdict
 from langchain_teddynote import logging
 from dotenv import load_dotenv
 
-api_key = os.getenv("UPSTAGE_API_KEY")
+import prompt
+
+# api_key = os.getenv("UPSTAGE_API_KEY")
+api_key = "up_qAeV4wltdGnqdmxavmqmxXyRBpmcZ"
 
 # API 키를 환경변수로 관리하기 위한 설정 파일
 load_dotenv() # API 키 정보 로드
@@ -41,17 +44,18 @@ class myRAG():
         self.documents = documents
 
         # Prompt 정의
-        self.prompt =  """You are an assistant for question-answering tasks. 
-            Use the following pieces of retrieved context to answer the question. 
-            If you don't know the answer, just say that you don't know. 
-            Answer in Korean.
+        # self.prompt =  """You are an assistant for question-answering tasks. 
+        #     Use the following pieces of retrieved context to answer the question. 
+        #     If you don't know the answer, just say that you don't know. 
+        #     Answer in Korean.
 
-            #Context: 
-            {context}
+        #     #Context: 
+        #     {context}
 
-            #Question:
-            {question}
-            """
+        #     #Question:
+        #     {question}
+        #     """
+        self.prompt = prompt.prompt_to_refine_text
 
         # 2. 문서 분할 (chunking)
         self.text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
@@ -83,14 +87,16 @@ class myRAG():
         )
         return response.choices[0].message.content
     
-    def RAG_chain_invoke(self, question = "AI 기술 유형 평균 기술 대비 갖는 임금 프리미엄이 가장 높은 AI 기술은?", top_k = 3 ):
+    def RAG_chain_invoke(self, question = "AI 기술 유형 평균 기술 대비 갖는 임금 프리미엄이 가장 높은 AI 기술은?",prompt=None, top_k = 3 ):
         # 1. question 정의
         context_docs = self.retriever.get_relevant_documents(question)[:top_k]
         context = "\n\n".join(doc.page_content for doc in context_docs)
 
         # 2. prompt와 question을 조합해 user 메시지 생성
-        formatted_prompt = self.prompt.format(context=context, question=question)
-
+        if prompt == None:
+            formatted_prompt = self.prompt.format(context=context, question=question)
+        else:
+            formatted_prompt = prompt
         # 3. chat_with_solar에 넣을 messages 구성
         messages = [{"role": "user", "content": formatted_prompt}]
         answer = self.chat_with_solar(messages)

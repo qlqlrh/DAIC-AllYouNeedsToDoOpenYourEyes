@@ -22,8 +22,10 @@ from langchain_teddynote import logging
 
 from dotenv import load_dotenv
 
-api_key = os.getenv("UPSTAGE_API_KEY")
+import prompt
 
+api_key = os.getenv("UPSTAGE_API_KEY")
+api_key = "up_qAeV4wltdGnqdmxavmqmxXyRBpmcZ"
 # API 키를 환경변수로 관리하기 위한 설정 파일
 load_dotenv() # API 키 정보 로드
 
@@ -84,14 +86,15 @@ def text_handler(figure_data: dict | None) -> str:
         return ""
 
 def equation_handler(equation_data_raw: tuple):
-    equation_handler_prompt = (
-        "너는 수학 수식을 설명하는 한국어 선생님이야.\n"
-        "아래에 주어진 수학 수식의 LaTeX 마크다운(markdown) 표현과 일반 텍스트(text) 표현을 보고, "
-        "이 수식이 의미하는 수학적 개념 또는 연산 과정을 한국어 자연어 문장으로 간결하게 설명해줘.\n"
-        "결과 문장은 논리적 흐름을 가지는 완전한 문장이어야 하며, 수학적 표현이 자연스럽게 해석되도록 구성되어야 해.\n"
-        "수식의 구조적 의미에 초점을 맞춰 설명해줘.\n"
-        "형식 예시: 이 수식은 k=1부터 n까지의 합을 나타내며, 분자는 2k+1이고 분모는 1^2부터 k^2까지의 제곱합이다."
-    )
+    # equation_handler_prompt = (
+    #     "너는 수학 수식을 설명하는 한국어 선생님이야.\n"
+    #     "아래에 주어진 수학 수식의 LaTeX 마크다운(markdown) 표현과 일반 텍스트(text) 표현을 보고, "
+    #     "이 수식이 의미하는 수학적 개념 또는 연산 과정을 한국어 자연어 문장으로 간결하게 설명해줘.\n"
+    #     "결과 문장은 논리적 흐름을 가지는 완전한 문장이어야 하며, 수학적 표현이 자연스럽게 해석되도록 구성되어야 해.\n"
+    #     "수식의 구조적 의미에 초점을 맞춰 설명해줘.\n"
+    #     "형식 예시: 이 수식은 k=1부터 n까지의 합을 나타내며, 분자는 2k+1이고 분모는 1^2부터 k^2까지의 제곱합이다."
+    # )
+    equation_handler_prompt = prompt.equation_handler_prompt
     # 실제 방정식 정보를 지닌 데이터.
     equation_data = equation_data_raw[0]
     # 방성식 정보위에 있는 문단의 데이터. (방정식에 대한 설명을 하고있을 확률 높음.) 해당 데이터는 None 이 들어올수있음. 그래도 오류가 나지않게 예외처리 해야함.
@@ -110,13 +113,14 @@ def equation_handler(equation_data_raw: tuple):
 
 def chart_handler(chart_data_raw: tuple):
     # chart_handler
-    chart_handler_prompt = (
-        "너는 표에 포함된 수치를 한국어로 요약 설명하는 AI야.\n"
-        "아래에 제공된 표 내용(markdown, text)을 보고, 각 항목과 수치를 한국어 문장으로 자연스럽게 설명해줘.\n"
-        "표는 항목별 수치를 나타내는 도표이며, 각 항목의 이름과 그에 대응하는 수치를 연결하여 설명해야 해.\n"
-        "결과는 문장 형태의 한국어 설명이어야 하며, 사람이 쉽게 이해할 수 있는 시퀀셜한 설명으로 구성돼야 해.\n"
-        "형식 예시: 이 도표는 에너지 생산량 비중을 나타내며, 핵에너지는 4%, 재생에너지는 4%, 석유는 34%의 비중을 차지한다."
-    )
+    # chart_handler_prompt = (
+    #     "너는 표에 포함된 수치를 한국어로 요약 설명하는 AI야.\n"
+    #     "아래에 제공된 표 내용(markdown, text)을 보고, 각 항목과 수치를 한국어 문장으로 자연스럽게 설명해줘.\n"
+    #     "표는 항목별 수치를 나타내는 도표이며, 각 항목의 이름과 그에 대응하는 수치를 연결하여 설명해야 해.\n"
+    #     "결과는 문장 형태의 한국어 설명이어야 하며, 사람이 쉽게 이해할 수 있는 시퀀셜한 설명으로 구성돼야 해.\n"
+    #     "형식 예시: 이 도표는 에너지 생산량 비중을 나타내며, 핵에너지는 4%, 재생에너지는 4%, 석유는 34%의 비중을 차지한다."
+    # )
+    chart_handler_prompt = prompt.chart_handler_prompt
 
     # 실제 데이터 도표 html 정보.
     chart_data = chart_data_raw[0]["content"]["html"]
@@ -134,14 +138,14 @@ def chart_handler(chart_data_raw: tuple):
 def figure_handler(figure_data: tuple):
 
     # figure_handler
-    figure_handler_prompt = (
-        "너는 도표 이미지를 설명하는 한국어 요약 전문가야.\n"
-        "이미지의 대체 텍스트(markdown과 text)를 기반으로, 그 이미지가 무엇을 나타내는지 자연스럽게 설명해줘.\n"
-        "수치가 포함된 경우에는 항목별로 나열하면서 간결하게 수치를 언급해주고, 전체적으로 어떤 내용을 담고 있는지 한국어로 시퀀셜하게 요약해줘.\n"
-        "결과는 임베딩 벡터로 사용할 수 있도록 완전한 문장 구조를 가져야 하며, 단순 나열이 아닌 설명적인 형태로 구성되어야 해.\n"
-        "형식 예시: 이 도표는 에너지 자원별 생산 비율을 보여준다. 석유는 34%, 석탄은 27%, 천연가스는 24% 등의 비중으로 구성된다."
-    )
-
+    # figure_handler_prompt = (
+    #     "너는 도표 이미지를 설명하는 한국어 요약 전문가야.\n"
+    #     "이미지의 대체 텍스트(markdown과 text)를 기반으로, 그 이미지가 무엇을 나타내는지 자연스럽게 설명해줘.\n"
+    #     "수치가 포함된 경우에는 항목별로 나열하면서 간결하게 수치를 언급해주고, 전체적으로 어떤 내용을 담고 있는지 한국어로 시퀀셜하게 요약해줘.\n"
+    #     "결과는 임베딩 벡터로 사용할 수 있도록 완전한 문장 구조를 가져야 하며, 단순 나열이 아닌 설명적인 형태로 구성되어야 해.\n"
+    #     "형식 예시: 이 도표는 에너지 자원별 생산 비율을 보여준다. 석유는 34%, 석탄은 27%, 천연가스는 24% 등의 비중으로 구성된다."
+    # )
+    figure_handler_prompt = prompt.figure_handler_prompt
     # figure 원본 html 데이터.
     markdown = figure_data[0]["content"]["html"]
 
