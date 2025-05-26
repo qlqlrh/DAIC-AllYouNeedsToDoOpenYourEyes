@@ -21,8 +21,7 @@ from collections import defaultdict
 from langchain_teddynote import logging
 from dotenv import load_dotenv
 
-# api_key = os.getenv("UPSTAGE_API_KEY")
-api_key = "up_qAeV4wltdGnqdmxavmqmxXyRBpmcZ"
+api_key = os.getenv("UPSTAGE_API_KEY")
 
 # API 키를 환경변수로 관리하기 위한 설정 파일
 load_dotenv() # API 키 정보 로드
