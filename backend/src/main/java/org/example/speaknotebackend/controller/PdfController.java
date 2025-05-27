@@ -1,10 +1,11 @@
 package org.example.speaknotebackend.controller;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.swagger.v3.oas.annotations.Operation;
 import lombok.RequiredArgsConstructor;
 import org.example.speaknotebackend.service.PdfService;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -24,34 +25,24 @@ public class PdfController {
     )
     @PostMapping("/upload")
     public ResponseEntity<Map<String, String>> uploadForModeling(@RequestParam("file") MultipartFile file) {
-        String fileId = pdfService.saveTempPDF(file);  // temp 폴더에만 저장
-        return ResponseEntity.ok(Map.of("fileId", fileId));
+        String fileId = pdfService.saveTempPDF(file);
+        String fastApiResponse = pdfService.sendPdfFileToFastAPI(file);  //응답 받아오기
+        System.out.println("FastAPI 응답: " + fastApiResponse);  //로그 출력
+
+        String status = "error";
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            JsonNode jsonNode = mapper.readTree(fastApiResponse);
+            status = jsonNode.get("status").asText();
+
+            System.out.println("FastAPI 응답: " + status);  //로그 출력
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        return ResponseEntity.ok(Map.of(
+                "fileId", fileId,
+                "status", status
+        ));
     }
-
-    // 주석 포함된 PDF 다운로드 (fileId 기반으로)
-// 예: /api/pdf/annotated?fileId=abc-123
-    @Operation(
-            summary = "주석 포함된 PDF 다운로드",
-            description = "fileId를 기반으로 주석이 포함된 PDF를 생성하고 반환합니다."
-    )
-    @GetMapping("/annotated")
-    public ResponseEntity<byte[]> downloadAnnotatedPdf(@RequestParam String fileId) throws Exception {
-        byte[] pdfBytes = pdfService.generatePdfWithAnnotations(fileId);
-
-        return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=annotated.pdf")
-                .contentType(MediaType.APPLICATION_PDF)
-                .body(pdfBytes);
-    }
-
-
-//    @PostMapping
-//    public ResponseEntity<byte[]> downloadPdf() throws Exception {
-//        byte[] pdfBytes = pdfService.generatePdfWithAnnotations();
-//
-//        return ResponseEntity.ok()
-//                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=annotations.pdf")
-//                .contentType(MediaType.APPLICATION_PDF)
-//                .body(pdfBytes);
-//    }
 }
