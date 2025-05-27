@@ -25,7 +25,6 @@ from dotenv import load_dotenv
 import prompt
 
 api_key = os.getenv("UPSTAGE_API_KEY")
-api_key = "up_qAeV4wltdGnqdmxavmqmxXyRBpmcZ"
 # API 키를 환경변수로 관리하기 위한 설정 파일
 load_dotenv() # API 키 정보 로드
 

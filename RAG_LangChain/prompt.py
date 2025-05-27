@@ -1,8 +1,10 @@
 from langchain.prompts import ChatPromptTemplate
 
 # main.py
+
+
 '''
-pdf내용과, 질의의 적합성에 대해서 판단하도록 하는 프롬포트이다.
+pdf내용과, 음성인식 텍스트의 적합성에 대해서 판단하도록 하는 프롬포트이다.
 '''
 grade_prompt = ChatPromptTemplate.from_messages([
 
@@ -14,11 +16,13 @@ grade_prompt = ChatPromptTemplate.from_messages([
 
 
 '''
-기존에 질문에 대해서 조금더 상세히 질문을 하도록 요청하는 프롬포트이다.
+# question 음성인식 기반으로 생성된 텍스트입니다.
+
+
+
 '''
 re_write_prompt = ChatPromptTemplate.from_messages([
-
-    ("system", "You are a question re-writer that converts an input question to a better version optimized for web search."),
+    ("system", "너는 텍스트를 정제해서 재생성 해주는 어시스턴스야. question은 음성인식 기반으로 생성된 텍스트야. 너는 이 텍스트가 자연스러운 한국어 또는 영어 문장이 되도록 문장을 정제해줘야해. "),
     ("human", "Here is the initial question: \n\n {question} \n Formulate an improved question.")
 ])
 
@@ -34,8 +38,8 @@ prompt_to_refine_text = """당신은 한국어로 정보를 체계적으로 정�
 사용자가 말한 내용은 강의 중 특정 주제에 대해 이해하고자 한 것입니다.
 
 아래는 강의에서 추출된 문서형 컨텍스트이며, 사용자의 질문은 그 내용을 보다 잘 정리하고자 한 것입니다.
-당신의 역할은 단순 요약이 아니라, 해당 주제에 대해 컨텍스트를 기반으로 **명확하고 논리적인 흐름으로 정리된 설명**을 제공하는 것입니다.
-사용자가 전체 흐름을 이해할 수 있도록 중요 개념, 관계, 예시를 적절히 구성해 전달하세요.
+당신의 역할은 해당 주제에 대해 컨텍스트를 기반으로 **명확하고 논리적인 흐름으로 정리된 설명**을 제공하는 것입니다.
+사용자가 전체 흐름을 이해할 수 있도록 중요 개념, 관계, 예시를 적절히 구성해 전달하세요. 
 
 다만, 문서에 해당 정보가 없으면 모른다고 정직하게 말하세요.
 최종 출력은 완전한 한국어 문장으로 된 하나의 정리된 설명이어야 합니다.
@@ -49,6 +53,31 @@ prompt_to_refine_text = """당신은 한국어로 정보를 체계적으로 정�
 #정리된 설명:
 """
 
+# myUpstageRAG
+'''
+websearch 내용을 기반으로 음성 인식 텍스트에 대한 내용을 정리, 요약하게 하는 프롬포트이다.
+'''
+prompt_to_refine_text_web = """당신은 한국어로 정보를 체계적으로 정리해주는 스마트 어시스턴트입니다.
+음성인식 텍스트는 강의 자료의 문맥과 적합하지 않다고 판단된 문장입니다.
+# question 음성인식 기반으로 생성된 텍스트입니다.
+1. 발표내용과 아예 무관한 상황. (예시, 오늘 날씨가 너무좋네요! 여러분들 잠오시죠?)
+2. 발표내용과 무관하진 않지만, 발표자료에는 있지 않은 정보에 대한 내용일때. (저가 이 모델에 대해서 추가 설명을 좀 드려볼게요. 일단 SOTA모델에 비교해서 이 모델의 MAP점수는...)
+
+# context 설명
+question을 기반으로 웹에서 탐색된 내용중 문맥과 유사도가 높은 상위 텍스트를 문맥으로 저장한 상태입니다.
+
+#정리된 설명
+당신의 역할은 해당 주제에 대해 컨텍스트를 기반으로 **명확하고 논리적인 흐름으로 정리된 설명**을 제공하는 것입니다.
+사용자가 전체 흐름을 이해할 수 있도록 중요 개념, 관계, 예시를 적절히 구성해 전달하세요.
+최종 출력은 완전한 한국어 문장으로 된 하나의 정리된 설명이어야 합니다.
+#Context:
+{context}
+
+#User Input (요약 요청 내용):
+{question}
+
+#정리된 설명:
+"""
 
 
 # myPDFparser
