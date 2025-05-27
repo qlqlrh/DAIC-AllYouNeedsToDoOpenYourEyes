@@ -1,14 +1,7 @@
 package org.example.speaknotebackend.service;
 
-import com.itextpdf.kernel.colors.ColorConstants;
-import com.itextpdf.kernel.font.PdfFontFactory;
-import com.itextpdf.kernel.geom.PageSize;
-import com.itextpdf.kernel.pdf.*;
-import com.itextpdf.kernel.pdf.canvas.PdfCanvas;
-import com.itextpdf.layout.Document;
 import lombok.RequiredArgsConstructor;
-import org.example.speaknotebackend.domain.entity.AnnotationBlock;
-import org.example.speaknotebackend.domain.repository.AnnotationRepository;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -23,58 +16,14 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
-import java.util.List;
 import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
 public class PdfService {
 
-    private final AnnotationRepository annotationRepository;
-
-    @Value("${custom.pdf.upload-path}")
-    private String uploadPath;
-
     @Value("${custom.pdf.allowed-origin}")
     private String fastapiBaseUrl;
-
-    public byte[] generatePdfWithAnnotations(String fileId) throws Exception {
-        List<AnnotationBlock> annotations = annotationRepository.findAll();
-
-        // 페이지 수 계산
-        int maxPage = annotations.stream()
-                .mapToInt(AnnotationBlock::getPageNumber)
-                .max()
-                .orElse(1);
-
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-        PdfWriter writer = new PdfWriter(out);
-        PdfDocument pdfDoc = new PdfDocument(writer);
-        Document doc = new Document(pdfDoc, PageSize.A4);
-
-        // 페이지 먼저 생성
-        for (int i = 0; i < maxPage; i++) {
-            pdfDoc.addNewPage();
-        }
-
-        for (AnnotationBlock block : annotations) {
-            PdfPage page = pdfDoc.getPage(block.getPageNumber());
-            PdfCanvas canvas = new PdfCanvas(page);
-
-            // 텍스트 스타일
-            canvas.beginText();
-            canvas.setFontAndSize(PdfFontFactory.createFont(), 10);
-            canvas.setFillColor(ColorConstants.BLACK);
-
-            // 좌표 기반 주석 출력
-            canvas.moveText(block.getX(), block.getY());
-            canvas.showText(block.getRefinedText());
-            canvas.endText();
-        }
-
-        doc.close();
-        return out.toByteArray();
-    }
 
     public String saveTempPDF(MultipartFile file) {
         try {
@@ -95,10 +44,6 @@ public class PdfService {
             Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
 
 
-            //FastAPI 호출
-            sendPdfFileToFastAPI(file);
-
-
             // 저장한 파일 ID 반환
             return fileId;
         } catch (IOException e) {
@@ -106,12 +51,11 @@ public class PdfService {
         }
     }
 
-    public void sendPdfFileToFastAPI(MultipartFile file) {
+    public String sendPdfFileToFastAPI(MultipartFile file) {
         try {
             String boundary = "----SpringToFastAPI";
             HttpClient client = HttpClient.newHttpClient();
 
-            // 바디 만들기
             String fileName = file.getOriginalFilename();
             String mimeType = file.getContentType();
             byte[] fileBytes = file.getBytes();
@@ -119,10 +63,8 @@ public class PdfService {
             String bodyHeader = "--" + boundary + "\r\n" +
                     "Content-Disposition: form-data; name=\"file\"; filename=\"" + fileName + "\"\r\n" +
                     "Content-Type: " + mimeType + "\r\n\r\n";
-
             String bodyFooter = "\r\n--" + boundary + "--\r\n";
 
-            // 전체 바디 조립
             byte[] requestBody = concatenate(
                     bodyHeader.getBytes(),
                     fileBytes,
@@ -130,18 +72,18 @@ public class PdfService {
             );
 
             HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create("http://localhost:9000/predict/pdf"))
+                    .uri(URI.create(fastapiBaseUrl))
                     .header("Content-Type", "multipart/form-data; boundary=" + boundary)
                     .POST(HttpRequest.BodyPublishers.ofByteArray(requestBody))
                     .build();
 
-            client.sendAsync(request, HttpResponse.BodyHandlers.ofString())
-                    .thenAccept(response -> {
-                        System.out.println("FastAPI 응답: " + response.body());
-                    });
+            // 동기 호출
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            return response.body();
 
         } catch (Exception e) {
             e.printStackTrace();
+            return "FastAPI 호출 실패";
         }
     }
 
