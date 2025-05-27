@@ -7,4 +7,5 @@ export interface DroppedAnnotation {
     width?: number;
     height?: number;
     markdown?: string;
+    answerState?: number; 
   }
