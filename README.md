@@ -150,8 +150,8 @@ CRAG는 검색된 문서들에 대한 자기 반성(self-reflection) 및 자기 
 
 ## 🖼️ 데모  
 
-> 예시:  
-![데모 스크린샷](./assets/demo.png)  
+![주석 편집 및 다운로드](https://github.com/user-attachments/assets/b47d76b8-6f9b-4245-b421-3372b0cc4f60)
+> 주석 편집 및 다운로드
 
 &nbsp;
 
