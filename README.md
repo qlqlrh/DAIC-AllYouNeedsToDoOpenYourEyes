@@ -93,6 +93,7 @@ Speak Note는 강의 및 발표 중 실시간으로 음성을 텍스트로 변�
   &nbsp;
 
 <img width="781" alt="스크린샷 2025-05-28 오전 7 52 57" src="https://github.com/user-attachments/assets/367b711c-1e68-416e-9e37-cce91a2e2d14" />
+
 > 예시 응답과정1. PDF에 있는 내용에 대한 음성 텍스트 처리
 
   &nbsp;
