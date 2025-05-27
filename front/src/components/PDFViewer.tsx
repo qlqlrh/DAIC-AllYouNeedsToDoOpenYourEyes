@@ -35,6 +35,26 @@
     const [selectedAnnotationId, setSelectedAnnotationId] = useState<string | null>(null);
     const [editValue, setEditValue] = useState<string>("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!selectedAnnotationId || !el) return;
+  
+    // ✨ textarea가 실제 DOM에 렌더된 후 한 프레임 쉬고 계산
+    const resizeObserver = new ResizeObserver(() => {
+      const newHeight = el.scrollHeight;
+      const currentHeight = dropped.find((a) => a.id === selectedAnnotationId)?.height;
+  
+      if (Math.abs((currentHeight ?? 0) - newHeight) > 1) {
+        updateAnnotation(selectedAnnotationId, { height: newHeight });
+      }
+    });
+  
+    resizeObserver.observe(el);
+  
+    return () => resizeObserver.disconnect();
+  }, [selectedAnnotationId]); // ⭐ editValue가 아니라, edit모드 진입에만 반응
+  
 
 
     useEffect(() => {
@@ -63,23 +83,68 @@
         )
       );
     };
-  const handleConfirmEdit = (annoId: string) => {
+    const handleConfirmEdit = (annoId: string) => {
       const el = textareaRef.current;
-      if (el) {
-        updateAnnotation(annoId, {
-          text: editValue,
-          width: el.offsetWidth,
-          height: el.offsetHeight,
-        });
-      } else {
-        updateAnnotation(annoId, { text: editValue });
-      }
+      const refinedText = editValue;
+
+      const lines = el?.value.split("\n").flatMap((line) => {
+        const temp = document.createElement("div");
+        temp.style.width = el.clientWidth + "px";
+        temp.style.font = window.getComputedStyle(el).font;
+        temp.style.lineHeight = window.getComputedStyle(el).lineHeight;
+        temp.style.whiteSpace = "pre-wrap";
+        temp.style.visibility = "hidden";
+        temp.style.position = "absolute";
+        temp.style.pointerEvents = "none";
+        temp.style.zIndex = "-1";
+        temp.textContent = ""; // 초기화
+      
+        // 줄 단위로 분리하려면 단어 기준 분할이 필요
+        const words = line.split(" ");
+        let currentLine = "";
+        let result: string[] = [];
+      
+        document.body.appendChild(temp);
+      
+        for (let word of words) {
+          const testLine = currentLine + (currentLine ? " " : "") + word;
+          temp.textContent = testLine;
+          if (temp.scrollWidth > el.clientWidth) {
+            result.push(currentLine);
+            currentLine = word;
+          } else {
+            currentLine = testLine;
+          }
+        }
+        if (currentLine) result.push(currentLine);
+      
+        document.body.removeChild(temp);
+        return result;
+      });
+    
+      
+      console.log("✅ refinedText:", refinedText);
+      console.log("✅ lines 내용:", lines);
+    
+      updateAnnotation(annoId, {
+        text: JSON.stringify({
+          refinedText,
+          lines, // ✅ 시각적 줄 상태도 저장
+          answerState: dropped.find((a) => a.id === annoId)?.answerState ?? 1, // ✅ 유지
+        }),        width: el?.offsetWidth,
+        height: el?.offsetHeight,
+      });
+    
       setSelectedAnnotationId(null);
     };
+    
 
-    return (
-      <div ref={containerRef} className="w-full h-screen overflow-y-auto bg-gray-100 p-4">
-        {file ? (
+    return (  
+<div
+  ref={containerRef}
+  className="w-full h-screen overflow-y-auto bg-gray-100 flex justify-start"
+>
+          {file ? (
           <Document
             file={file}
             onLoadSuccess={({ numPages }) => setNumPages(numPages)}
@@ -90,7 +155,8 @@
                 <div
                   key={pageNumber}
                   id={`pdf-page-${pageNumber}`}
-                  className="relative mb-4"
+                  className="relative mb-4 mx-auto" // 중앙 정렬 + 여백 제거
+                  style={{ maxWidth: `${containerWidth}px` }} // PDF 크기에 맞춤
                   onDrop={(e) => {
                     e.preventDefault();
                     const data = e.dataTransfer.getData("text/plain");
@@ -109,6 +175,7 @@
                         width: parsed.width ?? 160,     // ✅ 수정된 값 유지
                         height: parsed.height ?? 60,    // ✅ 수정된 값 유지
                         pageNumber,
+                        answerState: parsed.answerState ?? 1, // ✅ 이 줄 추가!
                       },
                     ]);
 
@@ -162,13 +229,43 @@
     onDragStop={(e, d) => {
       updateAnnotation(anno.id, { x: d.x, y: d.y });
     }}
-    onResizeStop={(e, dir, ref, delta, position) => {
+
+    onResize={(e, dir, ref, delta, position) => {
+      const textarea = ref.querySelector("textarea");
+      const newHeight =
+        textarea && textarea.scrollHeight > 0 ? textarea.scrollHeight : ref.offsetHeight;
+    
       updateAnnotation(anno.id, {
         width: ref.offsetWidth,
-        height: ref.offsetHeight,
+        height: newHeight,
+        x: position.x,
+        y: position.y,
+        
+      });
+    }}
+
+    
+    onResizeStop={(e, dir, ref, delta, position) => {
+      const newWidth = ref.offsetWidth;
+      console.log("📐 New newWidth after resize:", newWidth);
+
+      // ✨ textarea 기준 높이 재계산
+      const textarea = ref.querySelector("textarea");
+      
+      const newHeight =
+        textarea && textarea.scrollHeight > 0 ? textarea.scrollHeight : ref.offsetHeight;
+        setTimeout(() => {
+          const newHeight =
+            textarea && textarea.scrollHeight > 0 ? textarea.scrollHeight : ref.offsetHeight;
+            console.log("📐 New height after resize:", newHeight);
+
+      updateAnnotation(anno.id, {
+        width: newWidth,
+        height: newHeight,
         x: position.x,
         y: position.y,
       });
+    },0);
     }}
     bounds="parent"
     enableResizing={{
@@ -177,54 +274,61 @@
       right: true,
     }}
     className="absolute pointer-events-auto"
+    style={{
+      backgroundColor: anno.answerState === 0 ? "rgba(255, 182, 193, 0.6)" : "rgba(254, 240, 138, 0.8)", // 핑크 or 노랑
+      border: "1px solid gray",
+    }}
     cancel='[data-non-draggable="true"]'
     disableDragging={!isSelected}>
     {isSelected ? (
       <textarea
   ref={textareaRef}
+  
   id={`annotation-${anno.id}`}
       name={`annotation-${anno.id}`}
         value={editValue}
         onChange={(e) => setEditValue(e.target.value)}
-        onBlur={() => {
-          const element = textareaRef.current;
-          if (element) {
-            updateAnnotation(anno.id, {
-              text: editValue,
-              width: element.offsetWidth,
-              height: element.offsetHeight,
-            });
-          } else {
-            updateAnnotation(anno.id, { text: editValue });
-  }
-            setSelectedAnnotationId(null);
-                }}
-        className="w-full h-full bg-yellow-200 text-sm p-2 rounded shadow whitespace-pre-line break-words resize"
+        onBlur={() => handleConfirmEdit(anno.id)}
+        className={`${anno.answerState === 0 ? "bg-pink-200" : "bg-yellow-200"} w-full h-full text-sm p-2 rounded shadow whitespace-pre-line break-words resize`}
         autoFocus
-      />
+      />  
     ) : (
-      <div className="relative group w-full h-full bg-yellow-200 p-2 rounded shadow whitespace-pre-line break-words">
+      <div className={`relative group w-full h-full ${anno.answerState === 0 ? "bg-pink-200" : "bg-yellow-200"} text-sm p-2 rounded shadow whitespace-pre-line break-words`}>
       {isSelected ? (
         <textarea
           value={editValue}
           onChange={(e) => setEditValue(e.target.value)}
-          onBlur={() => {
-            updateAnnotation(anno.id, { text: editValue });
-            setSelectedAnnotationId(null);
-          }}
+          onBlur={() => handleConfirmEdit(anno.id)}
+
           autoFocus
-          className="bg-yellow-200 text-sm p-2 rounded shadow resize w-full min-w-[100px] min-h-[50px] whitespace-pre-wrap break-words"
+          className={' ${anno.answerState === 0 ? "bg-pink-200" : "bg-yellow-200"}  text-sm p-2 rounded shadow resize w-full min-w-[100px] min-h-[50px] whitespace-pre-wrap break-words'}
         />
       ) : (
-        <>{anno.text}</>
-      )}
+<>
+  {(() => {
+    try {
+      return JSON.parse(anno.text).refinedText;
+    } catch {
+      return anno.text;
+    }
+  })()}
+</>      )}
 
       <button
         onClick={(e) => {
           e.stopPropagation();
           setSelectedAnnotationId(anno.id);
-          setEditValue(anno.text);
-        }}
+          try {
+            const parsed = JSON.parse(anno.text);
+            setEditValue(parsed.refinedText ?? "");
+          } catch {
+            setEditValue(() => {
+              try {
+                return JSON.parse(anno.text).refinedText;
+              } catch {
+                return anno.text.includes("refinedText") ? "" : anno.text;
+              }
+            });          }        }}
         onMouseDown={(e) => e.stopPropagation()}
         className="non-draggable absolute top-1 right-1 z-50 pointer-events-auto"
       >
