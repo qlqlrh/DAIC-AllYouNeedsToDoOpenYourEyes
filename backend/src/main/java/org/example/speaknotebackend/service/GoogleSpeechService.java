@@ -19,6 +19,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
@@ -42,15 +43,18 @@ public class GoogleSpeechService {
     private final SttTextBuffer textBuffer = new SttTextBuffer();
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
     private final TextRefineService textRefineService;
+    private ScheduledFuture<?> scheduledTask;
+    String credentialsPath = System.getenv("GOOGLE_APPLICATION_CREDENTIALS");
 
     /**
      * 애플리케이션 시작 시 Google STT 클라이언트를 초기화한다.
      */
     public GoogleSpeechService(TextRefineService textRefineService) throws Exception {
         this.textRefineService = textRefineService;
+        log.info("[GoogleSpeechService] 생성자 진입");
         try {
             GoogleCredentials credentials = GoogleCredentials.fromStream(
-                    new FileInputStream("src/main/resources/stt-credentials.json")
+                    new FileInputStream(credentialsPath)
             );
 
             // 인증 정보를 포함한 STT 클라이언트 설정
@@ -70,10 +74,15 @@ public class GoogleSpeechService {
      */
     public void startStreaming(WebSocketSession session) {
         try {
+            if (scheduledTask != null && !scheduledTask.isDone()) {
+                log.warn("이미 스케줄러가 실행 중입니다.");
+                return;
+            }
+
             streamingStarted.set(true);
 
-            // 1초마다 누적 텍스트 전송
-            scheduler.scheduleAtFixedRate(() -> {
+            // 30초마다 누적 텍스트 전송
+            scheduledTask = scheduler.scheduleAtFixedRate(() -> {
                 String context = textBuffer.getAccumulatedContextAndClear();
                 log.warn("[AI 전송] 누적 context: {}", context);
                 if (context != null && !context.isBlank()) {
@@ -84,22 +93,49 @@ public class GoogleSpeechService {
                       
                         Map<String, Object> payload = new HashMap<>();
                         payload.put("refinedText", result.get("refinedText"));
-                        payload.put("refinedMarkdown", result.get("refinedMarkdown"));
+                        payload.put("voice",result.get("voice"));
+                        payload.put("answerState", result.get("answerState")); // 반드시 포함!
+//                        payload.put("refinedMarkdown", result.get("refinedMarkdown"));
+                        String refinedText = String.valueOf(result.get("refinedText")).trim();
 
+// 조건 1: 시작이 "에러"로 시작
+                        boolean startsWithError = refinedText.startsWith("에러");
+
+// 조건 2: 전체 내용에 "에러" 단어가 3번 이상 포함
+                        long errorCount = refinedText.chars()
+                                .mapToObj(c -> (char) c)
+                                .collect(StringBuilder::new, StringBuilder::append, StringBuilder::append)
+                                .toString()
+                                .split("에러", -1).length - 1; // "에러" 등장 횟수
+
+                        boolean tooManyErrors = errorCount >= 3;
+
+// 조건 3: 전체 길이가 너무 짧은 경우
+                        boolean tooShort = refinedText.length() < 15;
+
+                        if (startsWithError || tooManyErrors || tooShort) {
+                            log.info("전송 생략 - 이유: 시작 '에러'={}, 에러빈도={}, 길이={}", startsWithError, errorCount, refinedText.length());
+                            return;
+                        }
                         ObjectMapper mapper = new ObjectMapper();
                         String json = mapper.writeValueAsString(payload);
-                        session.sendMessage(new TextMessage(json));
+                        System.out.println(json);
+                        if (session.isOpen()) {
+                            session.sendMessage(new TextMessage(json));
+                        } else {
+                            log.warn("WebSocket 세션이 이미 닫혔습니다.");
+                        }
 
                         log.info("정제된 결과 WebSocket 전송 완료");
-                        log.info("AI 응답 내용: refinedText={}, refinedMarkdown={}",
-                                result.get("refinedText"), result.get("refinedMarkdown"));
+                        log.info("이거임.={}",
+                                result.get("refinedText"));
 
                     } catch (Exception e) {
                         log.error("AI 정제 및 전송 중 오류", e);
                     }
 
                 }
-            }, 5, 5, TimeUnit.SECONDS); // 5초 후 최초 실행, 이후 5초마다 반복
+            }, 15, 45, TimeUnit.SECONDS); // 30초 후 최초 실행, 이후 30초마다 반복
 
             // 양방향 스트리밍을 위한 BidiStreamObserver 구현
             speechClient.streamingRecognizeCallable().call(
@@ -206,8 +242,13 @@ public class GoogleSpeechService {
                 requestStream.closeSend();
                 requestStream = null;
                 streamingStarted.set(false);
-                textBuffer.clearAll();  // ← 반드시 버퍼 초기화!
+                textBuffer.clearAll();  // 반드시 버퍼 초기화!
                 log.info("STT 스트리밍 종료");
+            }
+
+            if (scheduledTask != null && !scheduledTask.isCancelled()) {
+                scheduledTask.cancel(true);  // 실행 중인 작업도 중단
+                log.info("STT 스케줄러 작업 종료");
             }
         } catch (Exception e) {
             log.warn("STT 종료 중 오류", e);
