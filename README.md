@@ -192,7 +192,28 @@ npm run dev
 ```
   
   &nbsp;
+  
+```bash
+# 파이썬 ai처리 백앤드 서버 구동
 
+# conda 가상환경 실행
+conda init
+
+conda create --name speak_note python=3.11.9
+
+conda activate speak_note
+
+# RAG_LangChain로 이동
+cd DAIC-AllYouNeedsToDoOpenYourEyes/RAG_LangChain
+
+# 의존성 설치
+pip install -r requirements.txt
+
+# ai 백앤드 서버 구동
+python server.py
+```
+  
+  &nbsp;
 ## 📁 프로젝트 구조
 ```
 .
