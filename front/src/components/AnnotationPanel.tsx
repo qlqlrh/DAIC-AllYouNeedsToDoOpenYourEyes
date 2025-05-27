@@ -77,8 +77,12 @@ export default function AnnotationPanel() {
 <div
   key={anno.id}
   className={`w-full rounded max-w-full p-2 shadow text-sm group flex justify-between items-center box-border ${
-    anno.answerState === 0 ? "bg-pink-200" : "bg-yellow-200"
-  }`}  draggable
+      anno.answerState === 0
+        ? "bg-pink-200"
+        : anno.answerState === 2
+        ? "bg-blue-200" 
+        : "bg-yellow-200"
+    }`}  draggable
   onDragStart={(e) => handleDragStart(e, anno.id)}
 >
 
