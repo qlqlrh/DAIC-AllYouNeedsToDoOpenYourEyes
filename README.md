@@ -159,6 +159,11 @@ CRAG는 검색된 문서들에 대한 자기 반성(self-reflection) 및 자기 
 
 ## 🖼️ 데모  
 
+![Image](https://github.com/user-attachments/assets/2144742a-4688-49c9-9e41-8ed03671a017)  
+> 실시간 주석 생성 (빨강: 강의 자료 내용, 파랑: 정제된 음성, 노랑: 강의 자료 외 내용)
+
+&nbsp;
+
 ![주석 편집 및 다운로드](https://github.com/user-attachments/assets/b47d76b8-6f9b-4245-b421-3372b0cc4f60)
 > 주석 편집 및 다운로드
 
