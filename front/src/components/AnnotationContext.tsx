@@ -29,28 +29,41 @@ export function AnnotationProvider({ children }: { children: React.ReactNode }) 
         .filter(Boolean);
       const answerState = parsed.answerState ?? 1;
       console.log("answerState 파싱 결과:", answerState);
-  
-      if (paragraphs.length > 1) {
-        setAnnotations((prev) => [
-          ...prev,
+      const newAnnotations: Annotation[] = [];
+      const parsedAnswerState = parsed.answerState ?? 1;
+
+
+          // voice가 존재하면 먼저 추가 (파란색)
+      if (parsed.voice) {
+        newAnnotations.push({
+          id: `${a.id}-voice`,
+          text: JSON.stringify({ refinedText: parsed.voice }),
+          markdown: a.markdown ?? null,
+          answerState: 2,
+        });
+      }
+
+      // refinedText가 있으면 문단마다 추가 (노란색)
+      if (paragraphs.length > 0) {
+        newAnnotations.push(
           ...paragraphs.map((para, idx) => ({
             id: `${a.id}-p${idx}`,
             text: JSON.stringify({ refinedText: para }),
             markdown: a.markdown ?? null,
-            answerState,
-          } as Annotation)),
-        ]);
-        return;
+            answerState: parsedAnswerState,
+          }))
+        );
       }
+
+
   
-      setAnnotations((prev) => [
-        ...prev,
-        { ...a, answerState } as Annotation,
-      ]);
-    } catch {
-      setAnnotations((prev) => [...prev, a]);
-    }
-  };
+    // 실제 등록
+    setAnnotations((prev) => [...prev, ...newAnnotations]);
+  } catch (err) {
+    console.error("🔴 JSON 파싱 실패. 원본 그대로 추가:", err);
+    setAnnotations((prev) => [...prev, a]);
+  }
+};
   
   
   
