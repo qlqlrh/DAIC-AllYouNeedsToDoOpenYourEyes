@@ -54,7 +54,9 @@ public class GoogleSpeechService {
         log.info("[GoogleSpeechService] 생성자 진입");
         try {
             GoogleCredentials credentials = GoogleCredentials.fromStream(
-                    new FileInputStream(credentialsPath)
+                    // new FileInputStream(credentialsPath)
+                    new FileInputStream("src/main/resources/stt-credentials.json")
+
             );
 
             // 인증 정보를 포함한 STT 클라이언트 설정
