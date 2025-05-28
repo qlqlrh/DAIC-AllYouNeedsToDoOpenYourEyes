@@ -9,6 +9,7 @@ document_path = "data/10 Vector Calculus.pdf"
 question = "삼성전자가 개발한 생성형 AI 의 이름은?"
 
 answer = "삼성전자가 개발한 생성형 AI의 이름은 '삼성 가우스'(Samsung Gauss)입니다."
+answer_state = 0                                    #  0 : web search 없이 그대로 반환, 1 : web search 기반으로 반환.
 '''
 import os
 import requests
@@ -163,7 +164,10 @@ def decide_to_generate(state: GraphState):
 # ===========================
 # Workflow Definition
 # ===========================
+# 그래프 상태 초기화
 workflow = StateGraph(GraphState)
+
+# 노드 정의
 workflow.add_node("retrieve", retrieve)
 workflow.add_node("grade_documents", grade_documents)
 workflow.add_node("generate", generate)
@@ -171,17 +175,29 @@ workflow.add_node("query_rewrite", query_rewrite)
 workflow.add_node("web_search_node", web_search)
 workflow.add_node("pass", passthrough)
 
-workflow.add_edge(START, "retrieve")
+# 엣지 연결
+workflow.add_edge(START, "query_rewrite")
+workflow.add_edge("query_rewrite", "retrieve")
 workflow.add_edge("retrieve", "grade_documents")
-workflow.add_conditional_edges("grade_documents", decide_to_generate, {
-    "query_rewrite": "query_rewrite",
-    "generate": "generate",
-})
-workflow.add_edge("query_rewrite", "web_search_node")
+
+# 문서 평가 노드에서 조건부 엣지 추가
+workflow.add_conditional_edges(
+    "grade_documents",
+    decide_to_generate,
+    {
+        "web_search_node": "web_search_node",
+        "generate": "generate",
+    },
+)
+
+# 엣지 연결
+# 모든 END 직전 노드는 pass로 향하게!
 workflow.add_edge("generate", "pass")
 workflow.add_edge("web_search_node", "pass")
 workflow.add_edge("pass", END)
 
+
+# 그래프 컴파일
 app = workflow.compile()
 
 # ===========================
@@ -189,11 +205,12 @@ app = workflow.compile()
 # ===========================
 # answer 값을 실제로 반환하기 위해서 stream형식 대신, 함수를 사용. (그럼으로 조건부 노드도 제거함.)
 state = {"question": question}
+state.update(query_rewrite(state))
+rewrited_text = state["question"]
 state.update(retrieve(state))
 state.update(grade_documents(state))
 
 if state["web_search"] == "Yes":
-    state.update(query_rewrite(state))
     state.update(web_search(state))
     answer_state = 1
 else:
@@ -201,5 +218,5 @@ else:
     answer_state = 0
 
 state.update(passthrough(state))
-
-answer = state["generation"]    # 실제 사용할 응답. (str) output를 저장할 str (예시 :  "삼성전자가 개발한 생성형 AI의 이름은 '삼성 가우스'(Samsung Gauss)입니다.") , answer_state = 0
+answer = "음성인식내용:" + rewrited_text + "\n\n" + "내용 정리 및 부가설명:" + state["generation"]    # 실제 사용할 응답. (str) output를 저장할 str (예시 :  "삼성전자가 개발한 생성형 AI의 이름은 '삼성 가우스'(Samsung Gauss)입니다.") , answer_state = 0
+print(answer)
